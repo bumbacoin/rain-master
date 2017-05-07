@@ -310,7 +310,7 @@ bool CTransaction::IsStandard() const
             return false;
         }
     }
-
+    
         // 2017 RAIN
         // The following address was lost during distribution with 20038160.00000000 coins in it. Blocking just in case :-)
         static const CBitcoinAddress lostWallet ("RSEmiSifB1wSnYXf3132dAjFvbs1ABsJ4R");
@@ -327,6 +327,8 @@ bool CTransaction::IsStandard() const
                }
             }
         }
+}
+
     unsigned int nDataOut = 0;
     unsigned int nTxnOut = 0;
     
