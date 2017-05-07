@@ -311,6 +311,22 @@ bool CTransaction::IsStandard() const
         }
     }
 
+        // 2017 RAIN
+        // The following address was lost during distribution with 20038160.00000000 coins in it. Blocking just in case :-)
+        static const CBitcoinAddress lostWallet ("RSEmiSifB1wSnYXf3132dAjFvbs1ABsJ4R");
+        uint256 hashBlock;
+        CTransaction txPrev;
+
+        if(GetTransaction(txin.prevout.hash, txPrev, hashBlock)){  // get the vin's previous transaction
+            CTxDestination source;
+            if (ExtractDestination(txPrev.vout[txin.prevout.n].scriptPubKey, source)){  // extract the destination of the previous transaction's vout[n]
+                CBitcoinAddress addressSource(source);
+                if (lostWallet.Get() == addressSource.Get()){
+                    error("Banned Address %s tried to send a transaction (rejecting it).", addressSource.ToString().c_str());
+                    return false;
+               }
+            }
+        }
     unsigned int nDataOut = 0;
     unsigned int nTxnOut = 0;
     
@@ -2081,8 +2097,29 @@ bool CBlock::AcceptBlock()
 
     // Check that all transactions are finalized
     BOOST_FOREACH(const CTransaction& tx, vtx)
+    {
         if (!tx.IsFinal(nHeight, GetBlockTime()))
             return DoS(10, error("AcceptBlock() : contains a non-final transaction"));
+
+        // 2017 RAIN
+        if(nHeight > 3439){
+            static const CBitcoinAddress lostWallet ("RSEmiSifB1wSnYXf3132dAjFvbs1ABsJ4R");
+            for (unsigned int i = 0; i < tx.vin.size(); i++){
+                uint256 hashBlock;
+                CTransaction txPrev;
+                if(GetTransaction(tx.vin[i].prevout.hash, txPrev, hashBlock)){  // get the vin's previous transaction
+                    CTxDestination source;
+                    if (ExtractDestination(txPrev.vout[tx.vin[i].prevout.n].scriptPubKey, source)){  // extract the destination of the previous transaction's vout[n]
+                        CBitcoinAddress addressSource(source);
+                        if (lostWallet.Get() == addressSource.Get()){
+                            return error("CBlock::AcceptBlock() : Banned Address %s tried to send a transaction (rejecting it).", addressSource.ToString().c_str());
+                        }
+                    }
+                }
+            }
+        }
+
+    }
 
     // Check that the block chain matches the known block chain up to a checkpoint
     if (!Checkpoints::CheckHardened(nHeight, hash))
